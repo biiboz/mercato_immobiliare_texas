@@ -1,0 +1,638 @@
+---
+title: "Analisi del mercato immobiliare del Texas"
+author: "Guido Borgianni"
+date: "2024-05-14"
+output: html_document
+---
+
+```{r}
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(knitr))
+suppressPackageStartupMessages(library(summarytools))
+suppressPackageStartupMessages(library(moments))
+suppressPackageStartupMessages(library(tidyr))
+real_estate_Texas<-read_csv("realestate_texas.csv")
+attach(real_estate_Texas)
+```
+# Prima parte
+
+## 1) Tipo delle variabili
+
+Le variabili che compaiono nel dataset "realestate_Texas" sono del seguente tipo:
+
+- **city**: variabile qualitativa su scala nominale;
+- **year**: variabile qualitativa su scala ordinale;
+- **month**: variabile qualitativa su scala nominale, ciclica;
+- **sales**: variabile quantitativa discreta;
+- **volume**: variabile quantitativa continua;
+- **median_price**: variabile quantitativa continua;
+- **listings**: variabile quantitativa discreta;
+- **months_inventory**: variabile quantitativa continua;
+
+Le variabili "year" e "month", seppur espresse in numeri, sono variabili qualitative in quanto l'anno ed il mese sono solo informazioni di riferimento e non esprimono una quantità temporale. La variabile "month" è qualitativa nominale, codificata in numeri e ciclica in quanto assume ripetutamente in ordine i valori da "1" a "12". La variabile "year" può essere considerata come variabile qualitativa ordinale prendendo come ordinamento quello temporale.
+
+## 2) Distribuzioni di frequenza, indici di posizione, di variabilità e di forma 
+
+### city
+La variabile "city" è una variabile qualitativa su scala nominale per cui non ha senso calcolarne gli indici ad eccezione della *moda*.
+Per ottenere la moda vediamo quali sono le frequenze assolute della variabile "city" e prendiamo la modalità con la frequenza assoluta più alta.  
+Creiamone dunque una distribuzione di frequenza:
+
+```{r}
+distr_freq_city<-real_estate_Texas %>% 
+  count(city) %>% 
+  mutate(frequenza_relativa_city=n/sum(n))
+
+distr_freq_city <- distr_freq_city %>%  rename("Frequenza assoluta"=n, "Frequenza relativa"=frequenza_relativa_city)
+kable(distr_freq_city)
+```
+
+Come possiamo vedere le frequenze assolute delle modalità di "city" sono tutte uguali, dunque non c'è una città che risulta avere più osservazioni rispetto alle altre. Di conseguenza la variabile è equidistribuita ed il suo indice di Gini è pari a 1.
+
+
+### year
+
+Questa variabile è qualitativa su scala ordinale in quanto possiamo disporre gli anni in ordine cronologico.   
+Vediamone la sua distribuzione di frequenza:
+
+```{r}
+distr_freq_year<-real_estate_Texas %>% 
+  count(year) %>% 
+  mutate(frequenza_relativa_y=n/sum(n), frequenza_cumulata_y=cumsum(n), frequenza_cumulata_relativa_y=frequenza_cumulata_y/sum(n))
+
+distr_freq_year <- distr_freq_year %>%  rename("Frequenza assoluta"=n, "Frequenza relativa"=frequenza_relativa_y, "Frequenza cumulata"=frequenza_cumulata_y, "Frequenza cumulata relativa"=frequenza_cumulata_relativa_y )
+kable(distr_freq_year)
+```
+Dalle frequenze assolute e relative vediamo che ogni anno contiene lo stesso numero di osservazioni (la variabile ha 5 modalità, dunque ogni anno ha il 20% delle osservazioni totali) e dunque, come per la variabile "city", abbiamo una distribuzione equidistribuita con indice di Gini pari a 1.   
+Avendo considerato la variabile "year" come qualitativa *ordinale* è stato possibile calcolarne anche le frequenze cumulate e cumulate relative anche se non aggiungono molte informazioni in quanto ogni modalità ha lo stesso numero di osservazioni e quindi si riporta un aumento costante del 20% (48 osservazioni) di anno in anno. 
+
+### month
+
+Questa variabile è qualitativa nominale ciclica perciò non ha senso calcolarne gli indici di posizione, variabilità e forma (ad eccezione della moda ed l'indice di Gini).   
+Vediamone la sua distribuzione di frequenza in cui riporteremo soltanto le frequenze assolute e relative in quanto non abbiamo considerato la variabile "month" su scala ordinale.
+
+```{r}
+distr_freq_month<-real_estate_Texas %>% 
+  count(month) %>% 
+  mutate(frequenza_relativa=round(n/sum(n),2))
+
+distr_freq_month <- distr_freq_month %>%  rename("Frequenza assoluta"=n, "Frequenza relativa"=frequenza_relativa)
+kable(distr_freq_month)
+```
+
+Da questa distribuzione di frequenza possiamo notare che, come per le variabili precedenti, ogni mese ha lo stesso numero di osservazioni e dunque la variabile "month" è equidistribuita ed il suo indice di eterogeneità di Gini è pari a 1.
+
+
+### Variabili quantitative
+
+Le rimanenti variabili sono tutte quantitative e dunque possiamo calcolarne i loro indici di posizione, variabilità e forma.  
+
+- **moda**: non ha molto senso calcolare la moda per una variabile con tante osservazioni in quanto il fatto di avere registrato alcuni valori identici non fornisce informazioni rilevanti;
+- **indice di eterogeneità di Gini**: non calcoleremo l'indice di eterogeneità di Gini in quanto le varaibili non sono qualitative e neanche raggruppate in classi.
+
+Per gli altri indici a cui siamo interessati possiamo utilizzare la funzione "descr" del pacchetto "summarytools" che ci permette anche di scegliere gli indici da mostrare passandoli nel parametro "stats".
+
+```{r}
+statistiche<-real_estate_Texas %>% 
+  select(4:8) %>% 
+  descr(stats=c("min","max","med","mean","q1","q3","iqr","sd","cv","skewness","kurtosis"))
+statistiche_arrotondate<-mutate_all(as.data.frame(statistiche), ~round(.,2)) #ho avuto problemi con il "round.digits" della funzione "descr"
+kable(statistiche_arrotondate)
+```
+
+Non è immediato fare un confronto tra gli indici di queste variabili che misurano grandezze di diverso tipo. Possiamo però confrontare gli indici relativi che ci permettono di fare un confronto tra variabili diverse dello stesso campione come ad esempio "CV", "Skewness" e "Kurtosis" (che in "descr" è già diminuita di 3 a differenza di "kurtosis" del pacchetto "moments") come vedremo nel punto seguente.
+
+
+## 3) Variabilità e asimmetria delle variabili
+
+Come anticipato alla fine del punto precedente, queste variabili misurano grandezze differenti ed utilizzano anche unità di misura differenti perciò è difficile confrontare la loro variabilità guardando, ad esempio, la loro deviazione standard.  
+Per fare questo confronto ci viene in aiuto il *coefficiente di variazione* "CV" che è un indice di variabilità relativo, in quanto è rapportato con il valore medio di ciascuna variabile.  
+Per le variabili quantitative possiamo dunque confrontare i loro CV ed affermare che la variabile con più variabilità è quella con un indice di variazione più alto.  
+
+```{r}
+CV <- function(x){ #definizione del coefficiente di variazione. In alternativa si poteva utilizzare la libreria "coefficientvariation"
+  return((sd(x)/mean(x))*100)
+}
+```
+```{r}
+table_CV<-real_estate_Texas %>% summarise(across(4:8,CV)) %>% pivot_longer(everything())
+table_CV <- table_CV %>% 
+  rename(Variabile = name,
+         CV = value) %>% 
+  arrange(desc(CV))
+
+table_CV_arrotondata <- table_CV %>% mutate(CV=round(CV,digits = 2))
+kable(table_CV_arrotondata)
+```
+
+Da questa tabella, comparando gli indici di variazione CV già ordinati in maniera decrescente, possiamo vedere che la variabile con più variabilità è "volume" con un CV pari a 53.71, mentre la variabile con meno variabilità è "median_price" che ha CV pari a 17.08.  
+Essendo "volume" la variabile che indica il valore totale delle vendite in milioni di dollari possiamo dedurre che tra i nostri dati possiamo trovare osservazioni con un valore totale delle vendite molto basso ed altre osservazioni dove questo valore è molto alto.  
+
+
+Un discorso equivalente può essere fatto per individuare la variabile più asimmetrica andando a confrontare i valori di "skewness" delle variabili e prendendo quello che in valore assoluto si allontana di più dallo 0.
+
+```{r}
+table_skew<-real_estate_Texas %>% summarise(across(4:8,skewness)) %>% pivot_longer(everything())
+table_skew <- table_skew %>% 
+  rename(Variabile = name,
+         Skewness = value) %>% 
+  mutate(Skewness=round(Skewness,digits = 2))%>% 
+  mutate(Skewness_abs=abs(Skewness)) %>% 
+  arrange(desc(Skewness_abs))
+kable(table_skew)
+```
+In questa tabella sono stati calcolati gli indici di asimmetria di Fisher di ciascuna variabile, è stato preso il loro valore assoluto ed i valori ottenuti sono stati ordinati in maniera decrescente.  
+Quindi, osservando la colonna "Skewness_abs" dove sono riportati i valori assoluti, possiamo affermare che la variabile più asimmetrica è "value" e dalla colonna "Skewness" si evince che la sua asimmetria è positiva.  
+Infatti la sua media (31.01) è maggiore della sua mediana (27.06), come possiamo osservare nella tabella con tutti gli indici di posizione.  
+Quindi sono state fatte più osservazioni in cui il valore totale delle vendite è basso rispetto a quelle in cui tale valore è alto e di conseguenza il suo grafico di densità sarà spostato verso sinistra ed avrà una coda allungata verso destra.
+
+
+## 4) Suddivisione in classi di una variabile
+
+In questo punto dividiamo la variabile "volume" in classi ed analizziamola.
+Abbiamo scleto la variabile "volume" in modo da poter verificare anche mediante distribuzione di frequenza e un istogramma quanto abbiamo affermato nel punto precedente.
+
+```{r}
+
+real_estate_volume_cl<-real_estate_Texas %>% mutate(volume_cl=cut(volume,breaks=seq(0,90,10)))
+N=nrow(real_estate_Texas) #numero di osservazioni, da qui in poi
+
+frequenza_assoluta=table(real_estate_volume_cl$volume_cl)
+frequenza_relativa=round(table(real_estate_volume_cl$volume_cl)/N,digits = 2)
+frequenza_cumulata=cumsum(frequenza_assoluta)
+frequenza_cumulata_relativa=round(frequenza_cumulata/N,digits = 2)
+
+distr_freq_volume_cl<-as.data.frame(cbind(frequenza_assoluta,frequenza_relativa,frequenza_cumulata,frequenza_cumulata_relativa))
+
+kable(distr_freq_volume_cl)
+```
+
+La variabile "volume" è stata divisa in 9 classi di pari ampiezza e sopra possiamo vedere la distribuzione di frequenza di tali classi. Come avevamo osservato quando ne abbiamo analizzato l'indici di asimmetria di Fisher, la variabile "volume" è asimmetrica positiva ed infatti, dalle frequenze cumulate relative, possiamo vedere che circa il 75% delle osservazioni assume valori "bassi" in quanto si trova nelle prime quattro classi.  
+Diamone un'interpretazione grafica attraverso un grafico a barre.
+
+```{r}
+barplot(distr_freq_volume_cl$frequenza_assoluta,
+        main="Distribuzione delle classi della variabile volume",
+        xlab="Classi di valore totale di vendita, milioni di $",
+        ylab="Frequenze assolute",
+        ylim=c(0,70),
+        xlim=c(0,9.7), #per mostrare tutte le etichette sotto alle barre, trovare un modo alternativo
+        col="chartreuse4",
+        #fill="darkorchid"
+        names.arg = rownames(distr_freq_volume_cl),
+        #density=200
+        border="darkslategray",
+        #space=0
+        )
+```
+
+Anche da questo grafico a barre vediamo che la distribuzione della variabile è asimmetrica positiva ed infatti le barre alte sono spostate sulla sinistra del grafico.  
+
+Per ultima cosa calcoliamo l'indice di eterogeneità di Gini per la variabile "volume" suddivisa in classi. 
+```{r}
+gini.index<-function(x){ #Creiamo la funzione per calcolare l'indice di Gini
+  ni=table(x)
+  fi=ni/length(x)
+  fi2=fi^2
+  J=length(table(x))
+  
+  gini=1-sum(fi2)
+  gini.normalizzato=gini/((J-1)/J)
+  
+  return(gini.normalizzato)
+}
+
+volume_cl_Gini<-round(gini.index(real_estate_volume_cl$volume_cl),digits = 2)
+print(volume_cl_Gini)
+```
+
+Dunque l'indice di Gini calcolato per la variabile "volume_cl" ("volume" suddivisa in classi) è 0.91. L'indice di Gini è abbastanza alto e dunque possiamo trarre l'informazione che la variabile è ditribuita in maniera molto eterogenea in quanto il valore si avvicina ad 1 che è l'indice di Gini di una variabile equidistribuita (anche se ad occhio nudo, guardando l'istogramma, potevamo pensare diversamente).
+
+
+## 5) Indice di Gini della variabile "city"
+
+L'indice di Gini della variabile "city" può essere ottenuto anche senza calcolarlo in quanto dalla distribuzione di frequenza di questa variabile qualitativa avevamo già visto che ogni modalità aveva lo stesso numero di osservazioni. Questo implica che la variabile è equidistribuita ed il suo indice di Gini è pari a 1.
+
+
+## 6) Probabilità di alcuni eventi
+
+### Probabilità che la variabile "city" sia "Beaumont"
+
+In quanto la variabile city è equidistribuita ed assume 4 modalità, la probabilità che un'osservazione riporti la città "Beaumont" è 1/4=0.25, cioè il 25%. Possiamo confutare questa deduzione anche applicando la formula della probabilità classica "casi favorevoli/casi possibili" guardando le frequenze assolute di tale variabile (la probabilità corrisponde alla frequenza relativa). 
+```{r}
+kable(distr_freq_city)
+print(distr_freq_city$`Frequenza assoluta`[1]/N)
+```
+### Probabilità che la variabile "month" sia "Luglio"
+
+Per prima cosa dobbiamo decodificare la variabile "month" che appare come una variabile qualitativa ma espressa in numeri. Il mese di Luglio corrisponde al valore "7" di tale variabile.  
+Essendo anche "month" una variabile equidistribuita possiamo trovare la sua probabilità dividendo 1 per il numero delle modalità che assume che in questo caso sono 12. Quindi la probabilità che questo evento si verifichi è 1/12=0.083, cioè circa l'8%.
+Anche in questo caso possiamo confermare il calcolo utilizzando la definizione classica della probabilità e la distribuzione di frequenza della variabile "month".
+```{r}
+kable(distr_freq_month)
+print(round(distr_freq_month$`Frequenza assoluta`[7]/N,digits = 2))
+```
+### Probabilità che "year" sia "2012" e contemporaneamente "month" sia "12"
+
+Per calcolare questa probabilità dobbiamo calcolare la frequenza relativa delle osservazioni che hanno come varaibile "year" l'anno "2012" e come variabile "month" il mese di dicembre che è codificato in "12".  
+Tuttavia, essendo anche la variabile "year" equidistribuita con 5 modalità, possiamo ricavare i casi favorevoli anche dividendo la frequenza assoluta del mese di dicembre per 5 ed ottenendo così un numero di casi favorevoli pari a 4 ed una probabilità di 4/240=0.016, circa il 2%.  
+Verifichiamo però applicando la definizione classica di probabilità e ricavando i casi favorevoli.
+```{r}
+casi_favorevoli<-real_estate_Texas %>% #calcolo dei casi favorevoli con la funzione filter
+  filter(year==2012, month==12) %>%
+  nrow()
+
+cat("Casi favorevoli=",casi_favorevoli)
+probabilità=round(casi_favorevoli/N,digits = 2)
+cat("Probabilità=",probabilità)
+```
+
+
+## 7) Colonna con il prezzo medio
+
+Possiamo creare una colonna contenente il prezzo medio di vendita di un'osservazione prendendo il valore totale delle vendite di un'osservazione (espresso in milioni di dollari) e dividerlo per numero totale delle vendite di quella osservazione (aggiustandone l'ordine di grandezza).
+
+```{r}
+real_estate_Texas_mp<- real_estate_Texas %>% 
+  mutate(mean_price=round(volume*1000000/sales,digits = 3))
+kable(head(real_estate_Texas_mp, n=10)) #mostriamo le prime 10 righe della tabella in cui abbiamo aggiunto la colonna mean_price
+```
+
+## 8) "Efficacia" degli annunci di vendita
+
+Una prima cosa che possiamo fare per dare un'idea dell'efficacia degli annunci è valutare quante vendite vengono effettuate in rapporto agli annunci attivi. Questo possiamo farlo creando una nuova variabile "sales_on_listings" ottenuta facendo il rapporto tra i valori di "sales" e "listings" di ogni osservazione.
+```{r}
+sales_on_listings<-(sales/listings)*100
+real_estate_Texas_sol<- real_estate_Texas %>% 
+  mutate(sales_on_listings=round(sales_on_listings,digits = 2))
+kable(head(real_estate_Texas_sol))
+```
+Più il valore di "sales_on_listings" è alto più annunci hanno fruttato una vendita in quell'osservazione.
+Possiamo anche vedere alcuni indici riguardanti questa variabile per cercare di trarne qualche informazione in più.
+```{r}
+sol_stats<-real_estate_Texas_sol %>% 
+  descr(sales_on_listings, stats=c("min","max","med","mean","sd","cv","skewness"))
+sol_stats_arrotondate<-mutate_all(as.data.frame(sol_stats), ~round(.,2))
+kable(sol_stats_arrotondate)
+```
+
+Da queste statistiche possiamo vedere ad esempio che in media vengono vendute circa il 12% delle case degli annunci nell'osservazione in cui sono sono state effettuate più vendite rispetto agli annunci disponibili sono state vendute circa il 39% delle case.  
+Possiamo anche valutare questa nuova variabile raggruppando i dati rispetto al mese o all'anno per vedere se riusciamo a fare ulteriori considerazioni.
+```{r}
+#stats_c<-as.data.frame(real_estate_Texas_sol %>%
+ # group_by(city) %>% 
+  #summarise(mean_of_sales_on_listings=mean(sales_on_listings)))
+#stats_c_arrotondate<-mutate_all(as.data.frame(stats_c), ~round(.,2))
+
+stats_m<-as.data.frame(real_estate_Texas_sol %>%
+  group_by(month) %>% 
+  summarise(mean_of_sales_on_listings=mean(sales_on_listings)))
+stats_m_arrotondate<-mutate_all(as.data.frame(stats_m), ~round(.,2))
+
+stats_y<-as.data.frame(real_estate_Texas_sol %>%
+  group_by(year) %>% 
+  summarise(mean_of_sales_on_listings=mean(sales_on_listings)))
+stats_y_arrotondate<-mutate_all(as.data.frame(stats_y), ~round(.,2))
+kable(stats_m_arrotondate, caption="Percentuale vendite/annunci nei mesi")
+kable(stats_y_arrotondate, caption = "Percentuale vendite/annunci negli anni")
+```
+
+Possiamo quindi affermare che in primavera ed estate (soprattutto da Maggio ad Agosto) c'è un'efficia maggiore degli annunci in quanto la percentuale venduta delle case in vendita è maggiore rispetto agli altri mesi.  
+Il raggruppamento in base agli anni invece ci permette di osservare che c'è un andamento crescente di questa variabile con il tempo. Questo indica che con il passare degli anni la percentuale delle case vendute tra quelle disponibili negli annunci aumenta.  
+Per ricavare informazioni riguardo l'efficacia degli annunci potevamo studiare anche la variabile "months_inventory" e vedere il suo andamento nel tempo o compararla raggruppando per città.
+
+
+
+## 9) Summary di alcune variabili condizionatamente a città, anni e mesi
+
+Proviamo a raggruppare le osservazioni in base alla città e gli anni e vediamo come cambiano ed evolvono alcune statistiche delle variabili "sales" e "listings" per fare delle osservazioni sul numero totale delle vendite e degli annunci.
+
+```{r}
+summary_s_l<- real_estate_Texas %>% 
+  group_by(city,year) %>% 
+  summarise(sales_max=round(max(sales),digits=2),
+            sales_min=round(min(sales),digits=2),
+            sales_mean=round(mean(sales),digits = 2),
+            sales_sd=round(sd(sales),digits = 2),
+            sales_CV=round(CV(sales),digits = 2),
+            listings_mean=round(mean(listings),digits = 2),
+            listings_sd=round(sd(listings),digits = 2),
+            listings_CV=round(CV(listings),digits = 2))
+kable(summary_s_l)
+```
+
+
+Proviamo a trarre alcune informazioni da questa tabella:
+
+#### Vendite
+
+Per quanto riguarda le vendite possiamo notare che:
+
+- il numero annuo più alto di vendite è statp registrato nella città di Tyler nel 2014 (osservazione a scopo informativo);
+- in tutte le città tranne quella di "Wichita Falls" possiamo notare, osservando la colonna "sales_mean", che il numero delle vendite medio ha un andamento crescente con il passare degli anni;
+- per quanto riguarda la variabilità del numero delle vendite possiamo vedere, guardando le colonne "sales_sd" e "sales_CV" (rispettivamente la deviazione standard ed il coefficiente di variazione della variabile "sales"), che la città in cui la variabilità di "sales"  è più alta è decisamente "Bryan-College Station". Nelle altre città il coefficiente di variazione si aggira attorno al valore 20, cioè la deviazione standard è circa il 20% della media, e varia di poco negli anni.
+
+#### Annunci
+
+Per quanto riguarda il numero degli annunci possiamo dire che:
+
+- la media del numero totale di annunci attivi ha un andamento per lo più decrescente con il passare degli anni nelle città di "Beaumont" e "Tyler";
+- ogni anno la media degli annunci attivi nella città "Tyler" è più grande dello stesso valore registrato nelle altre città; 
+- dalla colonna del coefficiente di variazione della variabile "listings" (il CV ci permette di confrontare la variabilità di due variabili diverse) vediamo invece che la variabilità della variabile "listings" è in generale minore di quella di "sales";
+
+Un'informazione interessante che possiamo ottenere combinando le nostre osservazioni è che nelle città di "Tyler" e "Beaumont", nonostante con il passare degli anni diminuisca il numero degli annunci attivi, il numero elle vendite aumenta. Da questo potremmo affermare che gli annunci, in queste città, risultano più efficaci con il passare del tempo.
+
+Altre due curiosità che potremmo avere sono:
+
+1. In quale città si registra un prezzo medio di vendita (qui espresso in dollari) più alto?
+2. In quali mesi si registrano un maggior numero di vendite?
+
+Per rispondere alla prima domanda vediamo la seguente tabella:
+```{r}
+stats_mean_price<-real_estate_Texas_mp %>% 
+  group_by(city) %>% 
+  summarise(mean_of_mean_price=mean(mean_price)) %>% 
+  arrange(desc(mean_of_mean_price))
+kable(stats_mean_price)
+```
+Dunque la città dove (in media) il prezzo medio di vendità è più alto è "Bryan-College Station".
+
+Per rispondere alla seconda domanda diamo invece un'occhiata a questa tabella:
+```{r}
+stats_sales_by_month<-real_estate_Texas %>% 
+  group_by(month) %>% 
+  summarise(mean_sales_per_month=round(mean(sales),digits=2)) %>% 
+  arrange(desc(mean_sales_per_month))
+kable(stats_sales_by_month)
+```
+Dunque in media il mese in cui vengono registrate più vendite è il mese di Giugno mentre quello con il minor numero medio è Gennaio. In generale possiamo notare che nei mesi estivi vengono acquistati in media più immobili rispetto ai mesi invernali. 
+
+# Seconda parte 
+
+Per questa parte utilizziamo il pacchetto "ggplot2" per la costruzione dei grafici.
+
+```{r}
+
+suppressPackageStartupMessages(library(ggplot2))
+```
+
+
+## 1) Boxplot per confrontare la distribuzione del prezzo mediano tra le città
+
+```{r, fig.width=10, fig.height=6}
+ggplot(data=real_estate_Texas)+
+  geom_boxplot(aes(x=city,
+                   y=median_price),
+               fill="#1f77b4", #dentro
+               color="darkblue",#bordo
+               alpha=0.9,
+               width=4)+ #trasparenza
+  #geom_hline(yintercept = median(median_price), color="darkred", linetype="dashed",size=0.5)+ #(linea per la mediana)
+  #geom_hline(yintercept = mean(median_price), color="gold", linetype="dashed",size=1)+
+  ggtitle("Distribuzione del prezzo mediano per città")+ #titolo
+  labs(x = "Città",
+       y = "median_price, dollari ($)",
+       color="black")+ #colore testo
+  theme_minimal()+
+  theme(axis.text.x=element_text(angle=30,hjust=1,size=10),#inclinazione etichette su x e distanza dall'asse
+        axis.text.y=element_text(hjust=1,size=10), #ingrandire scritta etichette y
+        axis.title.y=element_text(margin=margin(r=20),size=16), #distanziare titolo asse y
+        axis.title.x=element_text(size=16), #ingrandire titolo asse x
+        plot.title=element_text(size=20,margin=margin(b=20)), #grandezza del titolo del grafico
+        panel.background = element_rect(fill = "honeydew3"), #colore sfondo grafico
+        plot.background = element_rect(fill = "ghostwhite"), #colore contorno del grafico
+        panel.grid.major=element_line(color="ghostwhite"))#, linetype="dotted")) #colore e stile linee griglia
+```
+  
+Da questo graifco possiamo ricavare alcune informazioni rispetto alla posizione, variabilità e simmetria della variabile "median_price" raggruppata in base alla città.
+
+- notiamo che in nessuna città ci sono outliers inferiori e quindi la variabile "median_price" non ha registrato valori molto bassi (rispetto agli altri);
+- possiamo notare che il boxplot della città di "Bryan-College Station" è situato più in alto di tutti mentre quello più basso è quello della città "Wichita Falls". Essendo la variabile "median_price" la mediana dei prezzi registrati in un'osservazione possiamo supporre che la città dove i prezzi sono più alti è "Bryan-College Station" mentre i prezzi inferiori possiamo trovarli a "Wichita Falls";
+- Se non consideriamo il suo valore outlier possiamo addirittura intuire che i prezzi nella città di "Wichita Falls" siano nettamente inferiori rispetto alle altre in quanto il max relativo della variabile "median_price" in tale città è: molto inferiore al min relativo in "Bryan-College Station", circa pari al min relativo nella città di "Tyler" ed inferiore al valore del primo quartile Q1 della città di "Beaumont";
+- per quanto riguarda la variabilità della variabile "median_price" possiamo vedere,  osservando l'estensione in altezza dei boxplot, che è più alta nella città di "Wichita Falls" ed è minore nella città di "Bryan-College Station";
+- per quanto riguarda l'asimmetria notiamo ad esempio che nella cittò di "Bryan-College Station" la mediana è spostata nella parte inferiore del rettangolo, il baffo superiore è più lungo di quello inferiore ed è presente un outlier per valori alti e non per valori bassi. Da queste osservazioni possiamo supporre che la variabile "median_price" ristretta a tale città sia asimmetrica verso l'alto (verso destra se messa in orizzontale).
+
+## 2) Boxplot (o varianti) per confrontare la distribuzione delle vendite tra le città negli anni
+
+```{r, fig.width=10, fig.height=6}
+real_estate_Texas$year<-factor(real_estate_Texas$year) #rendiamo la variabile "year" un "factor"
+  
+ggplot(data=real_estate_Texas)+
+  geom_boxplot(aes(x=city,
+                   y=sales,
+                   fill=year))+
+  ggtitle("Distribuzione del numero di vendite per città negli anni")+ 
+  labs(x = "Città",
+       y = "Numero totale di vendite",
+       color="black")+ 
+  scale_y_continuous(breaks=seq(0,500,100), limits=c(0,450))+
+  labs(fill="Anni")+
+  theme_minimal()+
+  theme(axis.text.x=element_text(angle=30,hjust=1,size=10),
+        axis.text.y=element_text(hjust=1,size=10),
+        axis.title.y=element_text(margin=margin(r=20),size=16), 
+        axis.title.x=element_text(size=16), 
+        plot.title=element_text(size=20,margin=margin(b=20)), 
+        panel.background = element_rect(fill = "honeydew3"), 
+        plot.background = element_rect(fill = "ghostwhite"), 
+        panel.grid.major=element_line(color="ghostwhite"))
+
+```
+
+
+Sopra possiamo vedere il grafico mediante boxplot (che personalmente preferisco all'alternativa fatta con i violini "geom_violin") indicante la distribuzione della variabile "sales" raggruppata per città e vista nel variare degli anni.
+Possiamo notare che:
+
+- ad eccezione della città di "Wichita Falls" le vendite negli anni hanno un andamento crescente nelle altre città (anche se sembra ci sia stato un calo delle vendite nella città "Beaumont" dal 2010 al 2011);
+- la città di "Wichita Falls" si rivela ogni anno la città in cui vengono effettuate meno vendite ;
+- nel corso degli anni la città di "Tyler" si dimostra essere quella in cui il numero delle vendite tende ad essere maggiore rispetto a quello delle altre città e vediamo che nel 2014 viene registrata, in questa città, l'osservazione con il numero più alto di vendite;
+- la città in cui la variabilità della variabile "sales" risulta più alta è "Bryan-College Station";
+- possiamo vedere che negli ultimi anni la variabilità di "sales" nella città "Bryan-College Station" aumenta poiché l'altezza delle scatole e dei baffi cresce con il passare degli anni;
+- la città dove c'è meno variabilità nel numero totale delle vendite è "Wichita Falls"
+- possiamo dire che il caso di asimmetria più evidente è nella città di "Bryan-College Station". Infatti la mediana è sempre spostata verso il basso e la lunghezza della parte di rettangolo superiore e del baffo superiore è maggiore della lunghezza delle rispettive parti inferiori;
+- nella città di Tyler invece, tolto il 2010 dove si registra un situazione abbastanza simmetrica, la mediana è sempre spostata verso la parte alta della scatola ed il baffo superiore è sempre minore di quello inferiore. Dunque abbiamo una simmetria della variabile "sales" opposta a quella della città "Bryan-College Station.
+
+
+## 3) Grafico a barre sovrapposte per confrontare le vendite delle città nei vari mesi
+
+Costruiamo un grafico a barre sovrapposte in cui sull'asse delle "x" troviamo le modalità della variabile "city", sulle "y" troviamo la variabile "sales" e le barre si sovrappongono cambiando colore seguendo le modalità della variabile "month" che nella legenda è stata decodificata ed ogni valore numerico è stato sostituito dal nome del mese corrispondente. Inoltre per i colori delle barre sovrapposte sono stati scelti colori che possono essere associati al mese corrispondente sulla base di calore e "stagionalità".
+
+```{r, fig.width=10, fig.height=6}
+ggplot(data=real_estate_Texas)+
+  geom_col(aes(x=city,
+               y=sales,
+               fill=factor(month)),
+           position="stack")+ 
+  ggtitle("Distribuzione delle vendite per città nei mesi")+ 
+  labs(x = "Città",
+       y = "Numero totale delle vendite",
+       color="black")+ 
+  scale_fill_manual(values=c("slategray","lavender","plum2","lightgreen","springgreen3","yellow3","darkorange2", "orangered2", "darkred","chocolate4","darkslategray4","darkslateblue"),
+                    breaks=as.character(1:12),
+                    labels=c("Gennaio","Febbraio","Marzo","Aprile", "Maggio","Giungno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"))+
+  labs(fill="Mesi (month)")+
+  theme_minimal()+
+  theme(axis.text.x=element_text(angle=30,hjust=1,size=10),
+        axis.text.y=element_text(hjust=1,size=10), 
+        axis.title.y=element_text(margin=margin(r=20),size=16),
+        axis.title.x=element_text(size=16),
+        plot.title=element_text(size=20,margin=margin(b=20)), 
+        panel.background = element_rect(fill = "honeydew2"), 
+        plot.background = element_rect(fill = "ghostwhite"), 
+        panel.grid.major=element_line(color="lavenderblush4"))
+```
+
+Da questo grafico possiamo subito confermare che la città in cui sono stati registrati il maggiore ed il minore numero di vendite sono rispettivamente "Tyler" e "Wichita Falls".  
+Per vedere meglio i rapporti del numero delle vendite effettuate al variare dei mesi può essere più utile normalizzare il grafico a barre sovrapposte in modo tale da non influenzarlo dal numero di vendite registrate nella città.
+
+### Opzione per grafico meno colorato
+
+Se siamo alla ricerca di un grafico meno colorato per non essere disturbati dai colori durante l'interpretazione, possiamo decidere di inserire i mesi sull'asse delle ascisse ed usare le città per i colori delle barre sovrapposte.
+
+```{r, fig.width=10, fig.height=6}
+ggplot(data = real_estate_Texas) +
+  geom_col(aes(x = factor(month), 
+               y = sales, 
+               fill = city), 
+           position = "stack") +
+  ggtitle("Distribuzione delle vendite per mese nelle varie città") +
+  labs(x = "Mese",
+       y = "Numero totale delle vendite") +
+  scale_x_discrete(labels = c("Gennaio", "Febbraio", "Marzo", "Aprile", 
+                              "Maggio", "Giugno", "Luglio", "Agosto", 
+                              "Settembre", "Ottobre", "Novembre", "Dicembre")) +
+  labs(fill = "Città") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, size = 10),
+        axis.text.y = element_text(size = 10), 
+        axis.title.y = element_text(margin = margin(r = 20), size = 16),
+        axis.title.x = element_text(size = 16),
+        plot.title = element_text(size = 20, margin = margin(b = 20)), 
+        panel.background = element_rect(fill = "honeydew2"), 
+        plot.background = element_rect(fill = "ghostwhite"), 
+        panel.grid.major = element_line(color = "lavenderblush4"))
+```
+
+
+Vediamo ora una versione normalizzata del grafico del primo tipo:
+
+```{r, fig.width=10, fig.height=6}
+ggplot(data=real_estate_Texas)+
+  geom_col(aes(x=city,
+               y=sales,
+               fill=factor(month)),
+           position="fill")+ #per normalizzare il grafico 
+  ggtitle("Distribuzione delle vendite per città nei mesi (normalizzato)")+ 
+  labs(x = "Città",
+       y = "Numero totale delle vendite",
+       color="black")+ 
+  scale_fill_manual(values=c("slategray","lavender","plum2","lightgreen","springgreen3","yellow3","darkorange2", "orangered2", "darkred","chocolate4","darkslategray4","darkslateblue"),
+                    breaks=as.character(1:12),
+                    labels=c("Gennaio","Febbraio","Marzo","Aprile", "Maggio","Giungno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"))+
+  labs(fill="Mesi (month)")+
+  theme_minimal()+
+  scale_y_continuous(breaks = seq(0,1,0.1))+ #per mostrare l'intervallo da 0 a 1 sull'asse delle y con passi di 0.1
+  theme(axis.text.x=element_text(angle=30,hjust=1,size=10),
+        axis.text.y=element_text(hjust=1,size=10), 
+        axis.title.y=element_text(margin=margin(r=20),size=16),
+        axis.title.x=element_text(size=16),
+        plot.title=element_text(size=20,margin=margin(b=20)), 
+        panel.background = element_rect(fill = "honeydew2"), 
+        plot.background = element_rect(fill = "ghostwhite"), 
+        panel.grid.major=element_line(color="lavenderblush4"))
+```
+
+Dal grafico normalizzato riusciamo ad affermare con più sicurezza una sensazione che poteva essere intuita già dal grafico precedent. Guardando le dimensioni (ed i colori) delle barre sovrapposte risulta che vengono effettuate più vendite nei mesi primaverili ed estivi rispetto a quelli invernali ed autunnali.  
+In particolare i colori con barre più alte sono quelli associati ai mesi da Aprile ad Agosto mentre quelle più basse sono dei mesi da Novembre a Febbraio.  
+La città in cui questa differenza risulta più marcata è "Bryan-College Station" mentre ad esempio nella città di "Wichita Falls" non c'è una grande discrepanza tra i numeri totali delle vendite al variare dei mesi.
+
+Concludiamo con un grafico con barre sia sovrapposte, sia affiancate in cui teniamo conto anche del variare degli anni dato dalla variabile "year".  
+Per fare questo in unico blocco di codice possiamo usare la funzionalità "facet_grid" (o "facet_wrap" con "nrow=1" ) per la variabile "year".
+
+```{r, fig.width=10, fig.height=6}
+ggplot(data=real_estate_Texas)+
+  geom_col(aes(x=city,
+               y=sales,
+               fill=factor(month)),
+           position="stack")+ 
+  facet_grid(~year)+ #per allineare insieme grafici al variare della variabile "year"
+  ggtitle("Distribuzioni delle vendite per città nei mesi divise per anno")+ 
+  labs(x = "Città",
+       y = "Numero totale delle vendite",
+       color="black")+ 
+  scale_fill_manual(values=c("slategray","lavender","plum2","lightgreen","springgreen3","yellow3","darkorange2", "orangered2", "darkred","chocolate4","darkslategray4","darkslateblue"),
+                    breaks=as.character(1:12),
+                    labels=c("Gennaio","Febbraio","Marzo","Aprile", "Maggio","Giungno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"))+
+  labs(fill="Mesi (month)")+
+  theme_dark()+
+  theme(axis.text.x=element_text(angle=90,hjust=1,size=10),
+        axis.text.y=element_text(hjust=1,size=10), 
+        axis.title.y=element_text(margin=margin(r=20),size=16),
+        axis.title.x=element_text(size=16),
+        plot.title=element_text(size=20,margin=margin(b=20)), 
+        panel.background = element_rect(fill = "honeydew2"), 
+        plot.background = element_rect(fill = "ghostwhite"), 
+        panel.grid.major=element_line(color="lavenderblush4"))
+```
+
+Da questi grafici affiancati risulta evidente l'andamento crescente del numero delle vendite nel corso degli anni per le prime tre città.  
+Notiamo inoltre che la città "wichita Falls" registra ogni anno un numero di vendite sempre inferiore rispetto alle altre e che questa discrepanza si accenuta con il passare degli anni.  
+Se si preferisce possiamo vederne anche una versione in cui i grafici sono normalizzati rispetto alle vendite così da poter fare le considerazioni sulle percentuali di vendite effettuate nei mesi nelle varie città e confrontarle di anno in anno.
+
+```{r, fig.width=10, fig.height=6}
+ggplot(data=real_estate_Texas)+
+  geom_col(aes(x=city,
+               y=sales,
+               fill=factor(month)),
+           position="fill")+ 
+  facet_grid(~year)+ 
+  ggtitle("Distribuzioni delle vendite per città nei mesi divise per anno (normalizzato)")+ 
+  labs(x = "Città",
+       y = "Numero totale delle vendite",
+       color="black")+ 
+  scale_fill_manual(values=c("slategray","lavender","plum2","lightgreen","springgreen3","yellow3","darkorange2", "orangered2", "darkred","chocolate4","darkslategray4","darkslateblue"),
+                    breaks=as.character(1:12),
+                    labels=c("Gennaio","Febbraio","Marzo","Aprile", "Maggio","Giungno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"))+
+  labs(fill="Mesi (month)")+
+  theme_dark()+
+  theme(axis.text.x=element_text(angle=90,hjust=1,size=10),
+        axis.text.y=element_text(hjust=1,size=10), 
+        axis.title.y=element_text(margin=margin(r=20),size=16),
+        axis.title.x=element_text(size=16),
+        plot.title=element_text(size=20,margin=margin(b=20)), 
+        panel.background = element_rect(fill = "honeydew2"), 
+        plot.background = element_rect(fill = "ghostwhite"), 
+        panel.grid.major=element_line(color="lavenderblush4"))
+```
+In questi grafici notiamo invece che le percentuali delle vendite nei mesi non variano molto di anno in anno e quindi, anche con il passare del tempo, si registrano sempre più vendite nei mesi primaverili-estivi rispetto a quelli autunnali-invernali.
+
+## 4) Line chart di una variabile per fare confronti tra città e periodi
+
+```{r, fig.width=10, fig.height=6}
+real_estate_Texas_ymt<- real_estate_Texas %>% 
+  mutate(year_month_date=as.Date(paste(real_estate_Texas$year,real_estate_Texas$month,"01",sep="-")))
+
+ggplot(data=real_estate_Texas_ymt)+
+  geom_line(aes(x=year_month_date,y=months_inventory,color=city))+
+  labs(x="Anno-mese",y="months_inventory, (in mesi)", color="Città", title="Andamento di months_inventory negli anni per le varie città")+
+  geom_point(aes(x=year_month_date,y=months_inventory, color=city))+
+  scale_x_date(limits = as.Date(c("2010-01-01","2014-12-31")), date_labels = "%Y-%m",date_breaks = "6 month")+
+  theme_minimal()+
+  scale_y_continuous(breaks=seq(1,16,1), limits=c(1,16))+
+  theme(axis.text.x=element_text(angle=30,hjust=1,size=10),
+        axis.text.y=element_text(hjust=1,size=10), 
+        axis.title.y=element_text(margin=margin(r=20),size=16),
+        axis.title.x=element_text(size=16),
+        plot.title=element_text(size=20,margin=margin(b=20)), 
+        panel.background = element_rect(fill = "honeydew2"), 
+        plot.background = element_rect(fill = "ghostwhite"), 
+        panel.grid.major=element_line(color="lavenderblush4"))
+```
+
+Da questo ultimo grafico possiamo visualizzare l'andamento della variabile "months_inventory" negli anni e confrontarlo tra le varie città.  
+In particolare notiamo che:
+
+- nonstante la variabile "months_inventory" alterni evidenti picchi e valori minimi, possiamo notare che ha un andamento prevalentemente decrescente da Maggio/Giugno 2011 in tutte le città (anche se è meno evidente in "Wichita Falls"). Un andamento che si sposta verso valori più bassi della variabil "months_inventory" indica che negli anni si sta abbassando il numero di mesi che servirebbero a vendere tutte le inserzioni correnti con i ritmi attuali di vendita e di conseguenza indica una maggiore efficacia degli annunci (come avevamo osservato precedentemente con la variabile "sales_on_listings");
+- la città in cui occorre più tempo per vendere tutte le inserzioni si conferma per quasi tutto il periodo la città di "Tyler" mentre notiamo che, dalla metà del 2013 in poi, la città di "Bryan-College Station" è nettamente quella dove tale tempo è minore;
+- possiamo infine notare che nel periodo di tempo dal 2010 al 2014, la variabile "months_inventory" ha subito grandi cambiamenti nelle città di "Tyler" e "Bryan-College Station" mentre è rimasta più costante nella città di "Wichita Falls".
